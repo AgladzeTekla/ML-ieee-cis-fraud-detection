@@ -1,35 +1,53 @@
 import pandas as pd
 
-def one_hot_encode(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
-    """One‐hot encode specified categorical columns."""
-    return pd.get_dummies(df, columns=cols, dummy_na=False)
-
-def frequency_encode(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    """Replace each category with its overall frequency."""
-    freq = df[col].value_counts(normalize=True)
-    df[col + "_freq"] = df[col].map(freq)
-    return df
 
 def label_encode(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    """Simple integer mapping for a single categorical column."""
-    uniques = {v: i for i, v in enumerate(df[col].dropna().unique())}
-    df[col + "_lbl"] = df[col].map(lambda x: uniques.get(x, -1))
+    """
+    Integer–encode the categories of a single column.
+    """
+    df = df.copy()
+    uniques = df[col].dropna().unique()
+    mapping = {v: i for i, v in enumerate(uniques)}
+    df[col + '_lbl'] = df[col].map(lambda x: mapping.get(x, -1))
     return df
 
-def add_datetime_features(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
+
+def frequency_encode(df: pd.DataFrame, col: str) -> pd.DataFrame:
     """
-    If you have a timestamp column, extract hour/day/month.
-    (In IEEE-CIS data there’s no explicit datetime, but you could parse TransactionDT.)
+    Replace each category by its normalized frequency.
     """
-    ts = pd.to_datetime(df[time_col], unit='s', origin='unix')
-    df[time_col + "_hour"]   = ts.dt.hour
-    df[time_col + "_day"]    = ts.dt.day
-    df[time_col + "_month"]  = ts.dt.month
+    df = df.copy()
+    freq = df[col].value_counts(normalize=True)
+    df[col + '_freq'] = df[col].map(lambda x: freq.get(x, 0))
+    return df
+
+
+def one_hot_encode(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """
+    One–hot encode multiple categorical columns.
+    """
+    return pd.get_dummies(df, columns=cols, dummy_na=False)
+
+
+def create_time_features(df: pd.DataFrame, time_col: str = 'TransactionDT') -> pd.DataFrame:
+    """
+    From TransactionDT (seconds since reference), extract:
+      - day number
+      - hour of day
+      - day of week
+    """
+    df = df.copy()
+    # days since origin
+    df['Transaction_day'] = (df[time_col] // (3600 * 24)).astype(int)
+    # hour within day
+    df['Transaction_hour'] = ((df[time_col] % (3600 * 24)) // 3600).astype(int)
+    # approximate weekday (mod 7)
+    df['Transaction_weekday'] = (df['Transaction_day'] % 7).astype(int)
     return df
 
 __all__ = [
-    "one_hot_encode",
-    "frequency_encode",
-    "label_encode",
-    "add_datetime_features",
+    'label_encode',
+    'frequency_encode',
+    'one_hot_encode',
+    'create_time_features',
 ]
